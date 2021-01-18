@@ -1,4 +1,4 @@
-﻿'MIT License
+'MIT License
 
 'Copyright(c) 2021 HBSnail
 
@@ -308,41 +308,49 @@ Public Class Form1
     End Sub
 
     Private Sub Button4_Click(sender As Object, e As EventArgs) Handles Button4.Click
-        Dim client As New WebClientEx
-        client.Timeout = 5000
-        client.Headers.Add(HttpRequestHeader.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88")
-        client.Encoding = Encoding.UTF8
-        Dim loginauthkey As String = client.DownloadString("https://passport.bilibili.com/qrcode/getLoginUrl")
-        Dim jo As JObject = JObject.Parse(loginauthkey)
-        oauthKey = jo.SelectToken("data").SelectToken("oauthKey").ToString
-        Dim qrcodeurl As String = jo.SelectToken("data").SelectToken("url").ToString
-        Dim qrGenerator As QRCodeGenerator = New QRCodeGenerator()
-        Dim playload As PayloadGenerator.Url = New PayloadGenerator.Url(qrcodeurl)
-        Dim qrdata As QRCodeData = qrGenerator.CreateQrCode(playload)
-        Dim Myqrcode As QRCode = New QRCode(qrdata)
-        Dim qrCodeImage As Bitmap = Myqrcode.GetGraphic(5)
-        PictureBox1.Image = qrCodeImage
+        Try
+            Dim client As New WebClientEx
+            client.Timeout = 5000
+            client.Headers.Add(HttpRequestHeader.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88")
+            client.Encoding = Encoding.UTF8
+            Dim loginauthkey As String = client.DownloadString("https://passport.bilibili.com/qrcode/getLoginUrl")
+            Dim jo As JObject = JObject.Parse(loginauthkey)
+            oauthKey = jo.SelectToken("data").SelectToken("oauthKey").ToString
+            Dim qrcodeurl As String = jo.SelectToken("data").SelectToken("url").ToString
+            Dim qrGenerator As QRCodeGenerator = New QRCodeGenerator()
+            Dim playload As PayloadGenerator.Url = New PayloadGenerator.Url(qrcodeurl)
+            Dim qrdata As QRCodeData = qrGenerator.CreateQrCode(playload)
+            Dim Myqrcode As QRCode = New QRCode(qrdata)
+            Dim qrCodeImage As Bitmap = Myqrcode.GetGraphic(5)
+            PictureBox1.Image = qrCodeImage
+        Catch ex As Exception
+            MsgBox("获取失败：" & ex.Message)
+        End Try
         GC.Collect()
     End Sub
 
     Private Sub Button3_Click(sender As Object, e As EventArgs) Handles Button3.Click
-        Dim client As New WebClientEx
-        client.Timeout = 5000
-        client.Headers.Add(HttpRequestHeader.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88")
-        client.Encoding = Encoding.UTF8
+        Try
+            Dim client As New WebClientEx
+            client.Timeout = 5000
+            client.Headers.Add(HttpRequestHeader.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88")
+            client.Encoding = Encoding.UTF8
 
-        Dim authdat As String = client.UploadString("https://passport.bilibili.com/qrcode/getLoginInfo?oauthKey=" & oauthKey, "")
+            Dim authdat As String = client.UploadString("https://passport.bilibili.com/qrcode/getLoginInfo?oauthKey=" & oauthKey, "")
 
-        Dim jo As JObject = JObject.Parse(authdat)
-        Dim stat As String = jo.SelectToken("status").ToString
-        If stat.ToLower = "true" Then
-            Dim cook As String = jo.SelectToken("data").SelectToken("url").ToString
-            Cookie = cook.Replace("https://passport.biligame.com/crossDomain?", "").Replace("&gourl=http%3A%2F%2Fwww.bilibili.com", "").Replace("&", "; ")
-            PictureBox1.Image = defaultqrcode
-            MsgBox("登录成功" & vbCrLf & client.ResponseHeaders.ToString & vbCrLf & cook)
-        Else
-            MsgBox("登录状态核验失败：未扫码或已失效，请重试！" & vbCrLf & authdat)
-        End If
+            Dim jo As JObject = JObject.Parse(authdat)
+            Dim stat As String = jo.SelectToken("status").ToString
+            If stat.ToLower = "true" Then
+                Dim cook As String = jo.SelectToken("data").SelectToken("url").ToString
+                Cookie = cook.Replace("https://passport.biligame.com/crossDomain?", "").Replace("&gourl=http%3A%2F%2Fwww.bilibili.com", "").Replace("&", "; ")
+                PictureBox1.Image = defaultqrcode
+                MsgBox("登录成功" & vbCrLf & client.ResponseHeaders.ToString & vbCrLf & cook)
+            Else
+                MsgBox("登录状态核验失败：未扫码或已失效，请重试！" & vbCrLf & authdat)
+            End If
+        Catch ex As Exception
+            MsgBox("登录状态核验失败：" & ex.Message)
+        End Try
     End Sub
 
     Private Sub Button5_Click(sender As Object, e As EventArgs) Handles Button5.Click
