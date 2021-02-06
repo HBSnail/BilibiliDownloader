@@ -1,4 +1,4 @@
-'MIT License
+﻿'MIT License
 
 'Copyright(c) 2021 HBSnail
 
@@ -26,14 +26,18 @@ Imports Newtonsoft.Json.Linq
 Imports System.IO
 Imports System.ComponentModel
 Imports QRCoder
+Imports System.IO.Compression
+Imports System.Threading
 
 Public Class Form1
 
     Private Cookie As String = ""
     Private oauthKey As String = ""
     Private defaultqrcode As Bitmap
+    Delegate Sub setState(q As String, t As String, p As Integer)
 
     Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
+
         TreeView1.Nodes.Clear()
         Try
 
@@ -48,20 +52,48 @@ Public Class Form1
             client.Headers.Add(HttpRequestHeader.Cookie, Cookie)
             client.Headers.Add(HttpRequestHeader.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88")
             client.Encoding = Encoding.UTF8
-            Dim videoinfo As String = client.DownloadString("https://api.bilibili.com/x/web-interface/view?" +
-                                                            If(vid.Substring(0, 2).ToLower = "av", "a", "bv") + "id=" +
-                                                            If(vid.Substring(0, 2).ToLower = "av", vid.Substring(2, vid.Length - 2), vid))
-            Dim jo As JObject = JObject.Parse(videoinfo)
-            Dim title As String = jo.SelectToken("data").SelectToken("title").ToString()
-            Dim picurl As String = jo.SelectToken("data").SelectToken("pic").ToString()
-            Dim pagesjson As JToken = jo.SelectToken("data").SelectToken("pages")
             Dim videoparts As New List(Of Vpartsinfo)
-            For i = 0 To pagesjson.Count - 1
-                Dim vi As New Vpartsinfo
-                vi.cid = pagesjson(i).SelectToken("cid").ToString
-                vi.partsname = pagesjson(i).SelectToken("part").ToString
-                videoparts.Add(vi)
-            Next
+            Dim title As String
+            Dim picurl As String
+            If vid.Substring(0, 2).ToLower = "av" Or vid.Substring(0, 2).ToLower = "bv" Then
+                Dim videoinfo As String = client.DownloadString("https://api.bilibili.com/x/web-interface/view?" +
+                                                                If(vid.Substring(0, 2).ToLower = "av", "a", "bv") + "id=" +
+                                                                If(vid.Substring(0, 2).ToLower = "av", vid.Substring(2, vid.Length - 2), vid))
+                Dim jo As JObject = JObject.Parse(videoinfo)
+                title = jo.SelectToken("data").SelectToken("title").ToString()
+                picurl = jo.SelectToken("data").SelectToken("pic").ToString()
+                Dim pagesjson As JToken = jo.SelectToken("data").SelectToken("pages")
+                For i = 0 To pagesjson.Count - 1
+                    Dim vi As New Vpartsinfo
+                    vi.cid = pagesjson(i).SelectToken("cid").ToString
+                    vi.partsname = pagesjson(i).SelectToken("part").ToString
+                    vi.abvid = vid
+                    videoparts.Add(vi)
+                Next
+
+            ElseIf vid.Substring(0, 2).ToLower = "ep" Or vid.Substring(0, 2).ToLower = "ss" Then
+                Dim videoinfo As String = client.DownloadString("https://api.bilibili.com/pgc/view/web/season?" +
+                                                               If(vid.Substring(0, 2).ToLower = "ep", "ep_", "season_") + "id=" +
+                                                                vid.Substring(2, vid.Length - 2))
+                Dim jo As JObject = JObject.Parse(videoinfo)
+                Dim allep As JToken = jo.SelectToken("result").SelectToken("episodes")
+                title = jo.SelectToken("result").SelectToken("series").SelectToken("series_title").ToString()
+                For i = 0 To allep.Count - 1
+                    Dim bvid, cid, sname As String
+                    Dim vi As New Vpartsinfo
+                    bvid = allep(i).SelectToken("bvid")
+                    cid = allep(i).SelectToken("cid")
+                    sname = allep(i).SelectToken("share_copy")
+                    vi.cid = cid
+                    vi.abvid = bvid
+                    vi.partsname = sname
+                    videoparts.Add(vi)
+                Next
+
+            End If
+
+
+
             Dim qn As String = "80"
             Select Case ComboBox1.Text
                 Case "720P60 高清"
@@ -93,36 +125,55 @@ Public Class Form1
                     Exit Select
             End Select
             For i = 0 To videoparts.Count - 1
+
                 If RadioButton2.Checked And RadioButton1.Checked = False Then
                     Dim cidinfo As String = client.DownloadString("https://api.bilibili.com/x/player/playurl?cid=" +
                                                                   videoparts(i).cid +
                                                                   "&otype=json&fourk=1&" +
-                                                                  vid.Substring(0, 2).ToLower + "id=" +
-                                                                  If(vid.Substring(0, 2).ToLower = "av", vid.Substring(2, vid.Length - 2), vid) +
+                                                                  videoparts(i).abvid.Substring(0, 2).ToLower + "id=" +
+                                                                  If(videoparts(i).abvid.Substring(0, 2).ToLower = "av", videoparts(i).abvid.Substring(2, videoparts(i).abvid.Length - 2), videoparts(i).abvid) +
                                                                   "&qn=" + qn)
                     Dim cjsonobj As JObject = JObject.Parse(cidinfo)
                     videoparts(i).setQuality(cjsonobj.SelectToken("data").SelectToken("quality").ToString())
                     Dim videopartjson As JToken = cjsonobj.SelectToken("data").SelectToken("durl")
+                    videoparts(i).Additional.Add("弹幕: ")
+                    videoparts(i).urls.Add("https://comment.bilibili.com/" + videoparts(i).cid + ".xml")
                     For j = 0 To videopartjson.Count - 1
                         videoparts(i).Additional.Add(CLng(videopartjson(j).SelectToken("size").ToString()).ToString)
                         videoparts(i).urls.Add(videopartjson(j).SelectToken("url").ToString())
                     Next
+
                 ElseIf RadioButton1.Checked And RadioButton2.Checked = False Then
                     Dim cidinfo As String = client.DownloadString("https://api.bilibili.com/x/player/playurl?cid=" +
                                                                   videoparts(i).cid +
                                                                   "&fnver=0&fnval=80&fourk=1&otype=json&" +
-                                                                  vid.Substring(0, 2).ToLower + "id=" +
-                                                                  If(vid.Substring(0, 2).ToLower = "av", vid.Substring(2, vid.Length - 2), vid))
+                                                                  videoparts(i).abvid.Substring(0, 2).ToLower + "id=" +
+                                                                  If(videoparts(i).abvid.Substring(0, 2).ToLower = "av", videoparts(i).abvid.Substring(2, videoparts(i).abvid.Length - 2), videoparts(i).abvid) +
+                                                                    "&qn=" + qn)
                     Dim cjsonobj As JObject = JObject.Parse(cidinfo)
                     Dim DASHVideoParts As JToken = cjsonobj.SelectToken("data").SelectToken("dash").SelectToken("video")
+                    videoparts(i).Additional.Add("弹幕: ")
+                    videoparts(i).urls.Add("https://comment.bilibili.com/" + videoparts(i).cid + ".xml")
+
                     For j = 0 To DASHVideoParts.Count - 1
+                        Dim backupDASHVideoParts As JToken = DASHVideoParts(j).SelectToken("backupUrl")
                         videoparts(i).Additional.Add("视频:" + convertqual2string(DASHVideoParts(j).SelectToken("id").ToString()) + " ")
                         videoparts(i).urls.Add(DASHVideoParts(j).SelectToken("baseUrl").ToString())
+                        For k = 0 To backupDASHVideoParts.Count - 1
+                            videoparts(i).Additional.Add("视频:" + convertqual2string(DASHVideoParts(j).SelectToken("id").ToString()) + " ")
+                            videoparts(i).urls.Add(backupDASHVideoParts(k).ToString)
+                        Next
                     Next
+
                     Dim DASHAudioParts As JToken = cjsonobj.SelectToken("data").SelectToken("dash").SelectToken("audio")
                     For j = 0 To DASHAudioParts.Count - 1
+                        Dim backupDASHAideoParts As JToken = DASHAudioParts(j).SelectToken("backupUrl")
                         videoparts(i).Additional.Add("音频:" + convertqual2string(DASHAudioParts(j).SelectToken("id").ToString()) + " ")
                         videoparts(i).urls.Add(DASHAudioParts(j).SelectToken("baseUrl").ToString())
+                        For k = 0 To backupDASHAideoParts.Count - 1
+                            videoparts(i).Additional.Add("视频:" + convertqual2string(DASHAudioParts(j).SelectToken("id").ToString()) + " ")
+                            videoparts(i).urls.Add(backupDASHAideoParts(k).ToString)
+                        Next
                     Next
                 End If
             Next
@@ -145,6 +196,7 @@ Public Class Form1
             Next
             TreeView1.Nodes.Add(tree)
             TreeView1.ExpandAll()
+
         Catch ex As Exception
             MsgBox("解析失败: " & ex.Message)
         End Try
@@ -220,7 +272,9 @@ Public Class Form1
     End Function
 
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
-        ComboBox1.Text = "1080P 高清"
+
+        ThreadPool.QueueUserWorkItem(AddressOf addQueueDownload)
+        ComboBox1.Text = "4K 超清"
         Dim p As New ProgressBar
         p.Maximum = 101
         p.Value = 100
@@ -259,38 +313,77 @@ Public Class Form1
     End Structure
     Dim dq As New Queue(Of dfinfo)
     WithEvents wc As WebClientEx
-
+    Dim lock As Boolean = False
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
-        dq.Clear()
+
         CheckForAllNodes(TreeView1.Nodes)
-        While (dq.Count > 0)
-            Dim url As dfinfo = dq.Dequeue()
-            wc = New WebClientEx()
-            wc.Headers.Add(HttpRequestHeader.Referer, "https://www.bilibili.com")
-            wc.Headers.Add(HttpRequestHeader.Cookie, Cookie)
-            wc.Headers.Add(HttpRequestHeader.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88")
-            wc.KeepAlive = True
-            wc.Timeout = 10000000
-            wc.text = url.path.Replace("/", "->")
-            Dim d As New FileInfo(Application.StartupPath + "/" + url.path)
-            d.Directory.Create()
-            d.Create.Close()
-            wc.DownloadFileAsync(New Uri(url.url), d.FullName)
+
+    End Sub
+
+    Private Sub addQueueDownload(state As Object)
+        While (True)
+            If lock = False AndAlso dq.Count > 0 Then
+                lock = True
+                Dim url As dfinfo = dq.Dequeue()
+                wc = New WebClientEx()
+                wc.Headers.Add(HttpRequestHeader.Referer, "https://www.bilibili.com")
+                wc.Headers.Add(HttpRequestHeader.Cookie, Cookie)
+                wc.Headers.Add(HttpRequestHeader.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88")
+                wc.KeepAlive = True
+                wc.Timeout = 10000000
+                wc.text = url.path.Replace("/", "->")
+                Dim d As New FileInfo(Application.StartupPath + "/" + url.path)
+                d.Directory.Create()
+                d.Create.Close()
+                wc.fn = d.FullName
+                wc.DownloadFileAsync(New Uri(url.url), d.FullName)
+            Else
+                Thread.Sleep(1000)
+            End If
+
         End While
     End Sub
 
     Private Sub Webclient_DownloadFileCompleted(ByVal sender As Object, ByVal e As AsyncCompletedEventArgs) Handles wc.DownloadFileCompleted
         If e.Cancelled Then
-            MsgBox(CType(sender, WebClientEx).text & vbCrLf & "下载被取消!")
+            ThreadPool.QueueUserWorkItem(AddressOf AMsgBoxs, CType(sender, WebClientEx).text & vbCrLf & "下载被取消!")
         Else
-            MsgBox(CType(sender, WebClientEx).text & vbCrLf & "下载完成!")
+            Dim s() As String = TryCast(sender, WebClientEx).fn.Split("\")
+            If InStr(s(s.Length - 1), ".xml", CompareMethod.Binary) Then
+                Dim ms As New MemoryStream(IO.File.ReadAllBytes(TryCast(sender, WebClientEx).fn))
+                Dim dStream As New DeflateStream(ms, CompressionMode.Decompress)
+                dStream.Flush()
+                Dim sR As New StreamReader(dStream, Encoding.UTF8)
+                IO.File.WriteAllText(TryCast(sender, WebClientEx).fn, sR.ReadToEnd())
+            End If
+            ThreadPool.QueueUserWorkItem(AddressOf AMsgBoxs, CType(sender, WebClientEx).text & vbCrLf & "下载完成!")
         End If
+        lock = False
+    End Sub
+
+    Private Sub AMsgBoxs(state As Object)
+        MsgBox(state.ToString)
     End Sub
 
     Private Sub Webclient_DownloadProgressChanged(ByVal sender As Object, ByVal e As DownloadProgressChangedEventArgs) Handles wc.DownloadProgressChanged
-        Label5.Text = CType(sender, WebClientEx).text & vbCrLf & "->已下载: " & FormatBytes(e.BytesReceived) & vbCrLf & "->总大小: " & FormatBytes(e.TotalBytesToReceive) & vbCrLf & "->下载进度: " & Math.Round(((e.BytesReceived / e.TotalBytesToReceive) * 100), 2) & "%"
-        ProgressBar1.Value = e.ProgressPercentage
+        If e.TotalBytesToReceive > 0 Then
+
+            Dim dg As New setState(AddressOf setstat)
+            Me.Invoke(dg, dq.Count.ToString, CType(sender, WebClientEx).text & vbCrLf & "->已下载: " & FormatBytes(e.BytesReceived) & vbCrLf & "->总大小: " & FormatBytes(e.TotalBytesToReceive) & vbCrLf & "->下载进度: " & Math.Round(((e.BytesReceived / e.TotalBytesToReceive) * 100), 2) & "%", e.ProgressPercentage)
+        Else
+            Dim dg As New setState(AddressOf setstat)
+            Me.Invoke(dg, dq.Count.ToString, CType(sender, WebClientEx).text & vbCrLf & "->已下载: " & FormatBytes(e.BytesReceived), 100)
+
+        End If
+
     End Sub
+
+    Private Sub setstat(q As String, t As String, p As Integer)
+        Label6.Text = "下载进度:  下载队列中有" + q + "个文件"
+        Label5.Text = t
+        ProgressBar1.Value = p
+    End Sub
+
     Private Sub CheckForAllNodes(nodes As TreeNodeCollection)
         For i = 0 To nodes.Count - 1
             If nodes(i).Nodes.Count = 0 Then
@@ -364,5 +457,13 @@ Public Class Form1
         Dim fn As String = Application.StartupPath & "/COOKIE_" & Math.Abs(Now.ToBinary) & ".txt"
         File.WriteAllText(fn, Cookie)
         MsgBox("保存成功:" & vbCrLf & fn)
+    End Sub
+
+    Private Sub Button7_Click(sender As Object, e As EventArgs) Handles Button7.Click
+        Try
+            wc.CancelAsync()
+        Catch ex As Exception
+
+        End Try
     End Sub
 End Class

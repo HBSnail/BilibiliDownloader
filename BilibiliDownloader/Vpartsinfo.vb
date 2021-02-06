@@ -22,6 +22,7 @@
 
 Public Class Vpartsinfo
 
+    Public abvid As String
     Public partsname As String
     Public cid As String
     Public quality As String

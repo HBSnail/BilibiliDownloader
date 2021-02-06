@@ -20,7 +20,7 @@
 'OUT OF Or IN CONNECTION WITH THE SOFTWARE Or THE USE Or OTHER DEALINGS IN THE
 'SOFTWARE.
 
-Imports System.ComponentModel
+
 Imports System.Net
 
 Public Class WebClientEx
@@ -28,6 +28,7 @@ Public Class WebClientEx
     Public Property Timeout As Integer
 
     Public text As Object
+    Public fn As String
     Public Property KeepAlive As Boolean
     Public Overloads Property Proxy As IWebProxy
 
