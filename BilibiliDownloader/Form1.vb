@@ -56,7 +56,7 @@ Public Class Form1
             Dim title As String
             Dim picurl As String
             If vid.Substring(0, 2).ToLower = "av" Or vid.Substring(0, 2).ToLower = "bv" Then
-                Dim videoinfo As String = client.DownloadString("https://api.bilibili.com/x/web-interface/view?" +
+                Dim videoinfo As String = client.DownloadString("http://api.bilibili.com/x/web-interface/view?" +
                                                                 If(vid.Substring(0, 2).ToLower = "av", "a", "bv") + "id=" +
                                                                 If(vid.Substring(0, 2).ToLower = "av", vid.Substring(2, vid.Length - 2), vid))
                 Dim jo As JObject = JObject.Parse(videoinfo)
@@ -125,57 +125,61 @@ Public Class Form1
                     Exit Select
             End Select
             For i = 0 To videoparts.Count - 1
+                Try
 
-                If RadioButton2.Checked And RadioButton1.Checked = False Then
-                    Dim cidinfo As String = client.DownloadString("https://api.bilibili.com/x/player/playurl?cid=" +
-                                                                  videoparts(i).cid +
-                                                                  "&otype=json&fourk=1&" +
-                                                                  videoparts(i).abvid.Substring(0, 2).ToLower + "id=" +
-                                                                  If(videoparts(i).abvid.Substring(0, 2).ToLower = "av", videoparts(i).abvid.Substring(2, videoparts(i).abvid.Length - 2), videoparts(i).abvid) +
-                                                                  "&qn=" + qn)
-                    Dim cjsonobj As JObject = JObject.Parse(cidinfo)
-                    videoparts(i).setQuality(cjsonobj.SelectToken("data").SelectToken("quality").ToString())
-                    Dim videopartjson As JToken = cjsonobj.SelectToken("data").SelectToken("durl")
-                    videoparts(i).Additional.Add("弹幕: ")
-                    videoparts(i).urls.Add("https://comment.bilibili.com/" + videoparts(i).cid + ".xml")
-                    For j = 0 To videopartjson.Count - 1
-                        videoparts(i).Additional.Add(CLng(videopartjson(j).SelectToken("size").ToString()).ToString)
-                        videoparts(i).urls.Add(videopartjson(j).SelectToken("url").ToString())
-                    Next
+                    If RadioButton2.Checked And RadioButton1.Checked = False Then
+                        Dim cidinfo As String = client.DownloadString("https://api.bilibili.com/x/player/playurl?cid=" +
+                                                                      videoparts(i).cid +
+                                                                      "&otype=json&fourk=1&" +
+                                                                      videoparts(i).abvid.Substring(0, 2).ToLower + "id=" +
+                                                                      If(videoparts(i).abvid.Substring(0, 2).ToLower = "av", videoparts(i).abvid.Substring(2, videoparts(i).abvid.Length - 2), videoparts(i).abvid) +
+                                                                      "&qn=" + qn)
+                        Dim cjsonobj As JObject = JObject.Parse(cidinfo)
+                        videoparts(i).setQuality(cjsonobj.SelectToken("data").SelectToken("quality").ToString())
+                        Dim videopartjson As JToken = cjsonobj.SelectToken("data").SelectToken("durl")
+                        videoparts(i).Additional.Add("弹幕: ")
+                        videoparts(i).urls.Add("https://comment.bilibili.com/" + videoparts(i).cid + ".xml")
+                        For j = 0 To videopartjson.Count - 1
+                            videoparts(i).Additional.Add(CLng(videopartjson(j).SelectToken("size").ToString()).ToString)
+                            videoparts(i).urls.Add(videopartjson(j).SelectToken("url").ToString())
+                        Next
 
-                ElseIf RadioButton1.Checked And RadioButton2.Checked = False Then
-                    Dim cidinfo As String = client.DownloadString("https://api.bilibili.com/x/player/playurl?cid=" +
-                                                                  videoparts(i).cid +
-                                                                  "&fnver=0&fnval=80&fourk=1&otype=json&" +
-                                                                  videoparts(i).abvid.Substring(0, 2).ToLower + "id=" +
-                                                                  If(videoparts(i).abvid.Substring(0, 2).ToLower = "av", videoparts(i).abvid.Substring(2, videoparts(i).abvid.Length - 2), videoparts(i).abvid) +
-                                                                    "&qn=" + qn)
-                    Dim cjsonobj As JObject = JObject.Parse(cidinfo)
-                    Dim DASHVideoParts As JToken = cjsonobj.SelectToken("data").SelectToken("dash").SelectToken("video")
-                    videoparts(i).Additional.Add("弹幕: ")
-                    videoparts(i).urls.Add("https://comment.bilibili.com/" + videoparts(i).cid + ".xml")
+                    ElseIf RadioButton1.Checked And RadioButton2.Checked = False Then
+                        Dim cidinfo As String = client.DownloadString("https://api.bilibili.com/x/player/playurl?cid=" +
+                                                                      videoparts(i).cid +
+                                                                      "&fnver=0&fnval=80&fourk=1&otype=json&" +
+                                                                      videoparts(i).abvid.Substring(0, 2).ToLower + "id=" +
+                                                                      If(videoparts(i).abvid.Substring(0, 2).ToLower = "av", videoparts(i).abvid.Substring(2, videoparts(i).abvid.Length - 2), videoparts(i).abvid) +
+                                                                        "&qn=" + qn)
+                        Dim cjsonobj As JObject = JObject.Parse(cidinfo)
+                        Dim DASHVideoParts As JToken = cjsonobj.SelectToken("data").SelectToken("dash").SelectToken("video")
+                        videoparts(i).Additional.Add("弹幕: ")
+                        videoparts(i).urls.Add("https://comment.bilibili.com/" + videoparts(i).cid + ".xml")
 
-                    For j = 0 To DASHVideoParts.Count - 1
-                        Dim backupDASHVideoParts As JToken = DASHVideoParts(j).SelectToken("backupUrl")
-                        videoparts(i).Additional.Add("视频:" + convertqual2string(DASHVideoParts(j).SelectToken("id").ToString()) + " ")
-                        videoparts(i).urls.Add(DASHVideoParts(j).SelectToken("baseUrl").ToString())
-                        For k = 0 To backupDASHVideoParts.Count - 1
+                        For j = 0 To DASHVideoParts.Count - 1
+                            Dim backupDASHVideoParts As JToken = DASHVideoParts(j).SelectToken("backupUrl")
                             videoparts(i).Additional.Add("视频:" + convertqual2string(DASHVideoParts(j).SelectToken("id").ToString()) + " ")
-                            videoparts(i).urls.Add(backupDASHVideoParts(k).ToString)
+                            videoparts(i).urls.Add(DASHVideoParts(j).SelectToken("baseUrl").ToString())
+                            For k = 0 To backupDASHVideoParts.Count - 1
+                                videoparts(i).Additional.Add("视频:" + convertqual2string(DASHVideoParts(j).SelectToken("id").ToString()) + " ")
+                                videoparts(i).urls.Add(backupDASHVideoParts(k).ToString)
+                            Next
                         Next
-                    Next
 
-                    Dim DASHAudioParts As JToken = cjsonobj.SelectToken("data").SelectToken("dash").SelectToken("audio")
-                    For j = 0 To DASHAudioParts.Count - 1
-                        Dim backupDASHAideoParts As JToken = DASHAudioParts(j).SelectToken("backupUrl")
-                        videoparts(i).Additional.Add("音频:" + convertqual2string(DASHAudioParts(j).SelectToken("id").ToString()) + " ")
-                        videoparts(i).urls.Add(DASHAudioParts(j).SelectToken("baseUrl").ToString())
-                        For k = 0 To backupDASHAideoParts.Count - 1
-                            videoparts(i).Additional.Add("视频:" + convertqual2string(DASHAudioParts(j).SelectToken("id").ToString()) + " ")
-                            videoparts(i).urls.Add(backupDASHAideoParts(k).ToString)
+                        Dim DASHAudioParts As JToken = cjsonobj.SelectToken("data").SelectToken("dash").SelectToken("audio")
+                        For j = 0 To DASHAudioParts.Count - 1
+                            Dim backupDASHAideoParts As JToken = DASHAudioParts(j).SelectToken("backupUrl")
+                            videoparts(i).Additional.Add("音频:" + convertqual2string(DASHAudioParts(j).SelectToken("id").ToString()) + " ")
+                            videoparts(i).urls.Add(DASHAudioParts(j).SelectToken("baseUrl").ToString())
+                            For k = 0 To backupDASHAideoParts.Count - 1
+                                videoparts(i).Additional.Add("视频:" + convertqual2string(DASHAudioParts(j).SelectToken("id").ToString()) + " ")
+                                videoparts(i).urls.Add(backupDASHAideoParts(k).ToString)
+                            Next
                         Next
-                    Next
-                End If
+                    End If
+                Catch ex As Exception
+
+                End Try
             Next
             Dim tree As New TreeNode()
             tree.Text = title
@@ -388,11 +392,15 @@ Public Class Form1
         For i = 0 To nodes.Count - 1
             If nodes(i).Nodes.Count = 0 Then
                 If nodes(i).Checked Then
-                    Dim di As dfinfo
-                    di.url = nodes(i).Tag
-                    Dim k() As String = nodes(i).Tag.ToString.Split("?")(0).Split("/")
-                    di.path = nodes(i).Parent.Parent.Text + "/" + nodes(i).Parent.Text + "/" + k(k.Length - 1)
-                    dq.Enqueue(di)
+                    Try
+                        Dim di As dfinfo
+                        di.url = nodes(i).Tag
+                        Dim k() As String = nodes(i).Tag.ToString.Split("?")(0).Split("/")
+                        di.path = nodes(i).Parent.Parent.Text + "/" + nodes(i).Parent.Text + "/" + k(k.Length - 1)
+                        dq.Enqueue(di)
+                    Catch ex As Exception
+
+                    End Try
                 End If
             Else
                 CheckForAllNodes(nodes(i).Nodes)
@@ -465,5 +473,9 @@ Public Class Form1
         Catch ex As Exception
 
         End Try
+    End Sub
+
+    Private Sub Button8_Click(sender As Object, e As EventArgs) Handles Button8.Click
+        dq.Clear()
     End Sub
 End Class
