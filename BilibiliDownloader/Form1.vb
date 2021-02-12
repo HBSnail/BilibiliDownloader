@@ -1,4 +1,4 @@
-﻿'MIT License
+'MIT License
 
 'Copyright(c) 2021 HBSnail
 
@@ -47,11 +47,14 @@ Public Class Form1
             If vid = "" Then
                 vid = congs(congs.Length - 2)
             End If
-            Dim client As New WebClientEx
-            client.Timeout = 5000
+
+            Dim client As New WebClientEx With {
+                .Timeout = 5000,
+                .Encoding = Encoding.UTF8
+            }
             client.Headers.Add(HttpRequestHeader.Cookie, Cookie)
             client.Headers.Add(HttpRequestHeader.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88")
-            client.Encoding = Encoding.UTF8
+
             Dim videoparts As New List(Of Vpartsinfo)
             Dim title As String
             Dim picurl As String
@@ -64,10 +67,11 @@ Public Class Form1
                 picurl = jo.SelectToken("data").SelectToken("pic").ToString()
                 Dim pagesjson As JToken = jo.SelectToken("data").SelectToken("pages")
                 For i = 0 To pagesjson.Count - 1
-                    Dim vi As New Vpartsinfo
-                    vi.cid = pagesjson(i).SelectToken("cid").ToString
-                    vi.partsname = pagesjson(i).SelectToken("part").ToString
-                    vi.abvid = vid
+                    Dim vi As New Vpartsinfo With {
+                        .cid = pagesjson(i).SelectToken("cid").ToString,
+                        .partsname = pagesjson(i).SelectToken("part").ToString,
+                        .abvid = vid
+                    }
                     videoparts.Add(vi)
                 Next
 
@@ -181,13 +185,16 @@ Public Class Form1
 
                 End Try
             Next
-            Dim tree As New TreeNode()
-            tree.Text = title
-            tree.Tag = picurl
+
+            Dim tree As New TreeNode With {
+                .Text = title,
+                .Tag = picurl
+            }
             For i = 0 To videoparts.Count - 1
-                Dim treen As New TreeNode()
-                treen.Text = videoparts(i).partsname + " " + videoparts(i).getQuality()
-                treen.Tag = videoparts(i).cid
+                Dim treen As New TreeNode With {
+                    .Text = videoparts(i).partsname + " " + videoparts(i).getQuality(),
+                    .Tag = videoparts(i).cid
+                }
                 For j = 0 To videoparts(i).urls.Count - 1
                     Dim t3 As New TreeNode
                     With t3
@@ -206,7 +213,7 @@ Public Class Form1
         End Try
     End Sub
 
-    Private Function convertqual2string(v As String) As String
+    Private Function ConvertQual2String(v As String) As String
         Select Case v
             Case "30216"
                 Return "64K"
@@ -252,7 +259,7 @@ Public Class Form1
         Try
             Select Case BytesCaller
                 Case Is >= 1099511627776
-                    DoubleBytes = CDbl(BytesCaller / 1099511627776)
+                    DoubleBytes = BytesCaller / 1099511627776
                     Return FormatNumber(DoubleBytes, 2) & " TB"
                 Case 1073741824 To 1099511627775
                     DoubleBytes = CDbl(BytesCaller / 1073741824)
@@ -279,9 +286,6 @@ Public Class Form1
 
         ThreadPool.QueueUserWorkItem(AddressOf addQueueDownload)
         ComboBox1.Text = "4K 超清"
-        Dim p As New ProgressBar
-        p.Maximum = 101
-        p.Value = 100
         defaultqrcode = PictureBox1.Image
     End Sub
 
@@ -311,12 +315,13 @@ Public Class Form1
         Next
     End Sub
 
-    Structure dfinfo
+    Structure DfInfo
         Public url As String
         Public path As String
     End Structure
-    Dim dq As New Queue(Of dfinfo)
-    WithEvents wc As WebClientEx
+
+    Private dq As New Queue(Of DfInfo)
+    WithEvents WC As WebClientEx
     Dim lock As Boolean = False
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
 
@@ -324,23 +329,23 @@ Public Class Form1
 
     End Sub
 
-    Private Sub addQueueDownload(state As Object)
+    Private Sub AddQueueDownload(state As Object)
         While (True)
             If lock = False AndAlso dq.Count > 0 Then
                 lock = True
-                Dim url As dfinfo = dq.Dequeue()
-                wc = New WebClientEx()
-                wc.Headers.Add(HttpRequestHeader.Referer, "https://www.bilibili.com")
-                wc.Headers.Add(HttpRequestHeader.Cookie, Cookie)
-                wc.Headers.Add(HttpRequestHeader.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88")
-                wc.KeepAlive = True
-                wc.Timeout = 10000000
-                wc.text = url.path.Replace("/", "->")
+                Dim url As DfInfo = dq.Dequeue()
+                WC = New WebClientEx()
+                WC.Headers.Add(HttpRequestHeader.Referer, "https://www.bilibili.com")
+                WC.Headers.Add(HttpRequestHeader.Cookie, Cookie)
+                WC.Headers.Add(HttpRequestHeader.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88")
+                WC.KeepAlive = True
+                WC.Timeout = 10000000
+                WC.text = url.path.Replace("/", "->")
                 Dim d As New FileInfo(Application.StartupPath + "/" + url.path)
                 d.Directory.Create()
                 d.Create.Close()
-                wc.fn = d.FullName
-                wc.DownloadFileAsync(New Uri(url.url), d.FullName)
+                WC.fn = d.FullName
+                WC.DownloadFileAsync(New Uri(url.url), d.FullName)
             Else
                 Thread.Sleep(1000)
             End If
@@ -382,7 +387,7 @@ Public Class Form1
 
     End Sub
 
-    Private Sub setstat(q As String, t As String, p As Integer)
+    Private Sub SetStat(q As String, t As String, p As Integer)
         Label6.Text = "下载进度:  下载队列中有" + q + "个文件"
         Label5.Text = t
         ProgressBar1.Value = p
@@ -410,10 +415,11 @@ Public Class Form1
 
     Private Sub Button4_Click(sender As Object, e As EventArgs) Handles Button4.Click
         Try
-            Dim client As New WebClientEx
-            client.Timeout = 5000
+            Dim client As New WebClientEx With {
+                .Timeout = 5000,
+                .Encoding = Encoding.UTF8
+            }
             client.Headers.Add(HttpRequestHeader.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88")
-            client.Encoding = Encoding.UTF8
             Dim loginauthkey As String = client.DownloadString("https://passport.bilibili.com/qrcode/getLoginUrl")
             Dim jo As JObject = JObject.Parse(loginauthkey)
             oauthKey = jo.SelectToken("data").SelectToken("oauthKey").ToString
@@ -432,10 +438,12 @@ Public Class Form1
 
     Private Sub Button3_Click(sender As Object, e As EventArgs) Handles Button3.Click
         Try
-            Dim client As New WebClientEx
-            client.Timeout = 5000
+            Dim client As New WebClientEx With {
+                .Timeout = 5000,
+                .Encoding = Encoding.UTF8
+            }
             client.Headers.Add(HttpRequestHeader.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88")
-            client.Encoding = Encoding.UTF8
+
 
             Dim authdat As String = client.UploadString("https://passport.bilibili.com/qrcode/getLoginInfo?oauthKey=" & oauthKey, "")
 
