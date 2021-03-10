@@ -1,4 +1,4 @@
-'MIT License
+﻿'MIT License
 
 'Copyright(c) 2021 HBSnail
 
@@ -176,13 +176,14 @@ Public Class Form1
                             videoparts(i).Additional.Add("音频:" + convertqual2string(DASHAudioParts(j).SelectToken("id").ToString()) + " ")
                             videoparts(i).urls.Add(DASHAudioParts(j).SelectToken("baseUrl").ToString())
                             For k = 0 To backupDASHAideoParts.Count - 1
-                                videoparts(i).Additional.Add("视频:" + convertqual2string(DASHAudioParts(j).SelectToken("id").ToString()) + " ")
+                                videoparts(i).Additional.Add("音频:" + ConvertQual2String(DASHAudioParts(j).SelectToken("id").ToString()) + " ")
                                 videoparts(i).urls.Add(backupDASHAideoParts(k).ToString)
                             Next
                         Next
                     End If
                 Catch ex As Exception
-
+                    MsgBox("解析失败: " & ex.Message)
+                    Exit Sub
                 End Try
             Next
 
@@ -339,9 +340,14 @@ Public Class Form1
                 WC.Headers.Add(HttpRequestHeader.Cookie, Cookie)
                 WC.Headers.Add(HttpRequestHeader.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88")
                 WC.KeepAlive = True
-                WC.Timeout = 10000000
+                WC.Timeout = 5000
                 WC.text = url.path.Replace("/", "->")
-                Dim d As New FileInfo(Application.StartupPath + "/" + url.path)
+                Dim d As FileInfo
+                Try
+                    d = New FileInfo(Application.StartupPath + "/" + url.path)
+                Catch ex As Exception
+                    d = New FileInfo(Application.StartupPath + "/" + url.path.Replace(":", ""))
+                End Try
                 d.Directory.Create()
                 d.Create.Close()
                 WC.fn = d.FullName
